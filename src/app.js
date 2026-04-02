@@ -109,6 +109,11 @@ function computeDiff(oldText, newText) {
 // --- Template patch application ---
 
 function applyPatches(doc, response) {
+  // If response has no patch blocks, wrap it in a default exchange patch
+  if (!response.includes('<!-- patch:')) {
+    response = `<!-- patch:exchange -->\n${response}\n<!-- /patch:exchange -->`
+  }
+
   const patchRegex = /<!-- patch:(\w+) -->([\s\S]*?)<!-- \/patch:\1 -->/g
   let result = doc
   let match
@@ -302,7 +307,8 @@ async function callClaude(apiKey, model, skillMd, diff, doc, ragieContext) {
     response = await callClaudeRaw(apiKey, model, systemPrompt, messages)
   }
 
-  return response
+  // Strip any remaining <ragie-search> tags from the final response
+  return response.replace(/<ragie-search\s+query="[^"]*"\s*\/>/g, '').trim()
 }
 
 // --- Editor ---
