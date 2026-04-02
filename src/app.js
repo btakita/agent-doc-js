@@ -281,10 +281,8 @@ function init() {
     dialog.showModal()
   })
 
-  document.getElementById('settings-cancel').addEventListener('click', () => dialog.close())
-
-  dialog.addEventListener('close', () => {
-    if (dialog.returnValue === '') return
+  document.getElementById('settings-save').addEventListener('click', (e) => {
+    e.preventDefault()
     const newSettings = {
       apiKey: document.getElementById('api-key-input').value,
       model: document.getElementById('model-select').value,
@@ -294,7 +292,10 @@ function init() {
     saveSettings(newSettings)
     Object.assign(settings, newSettings)
     setStatus('Settings saved')
+    dialog.close()
   })
+
+  document.getElementById('settings-cancel').addEventListener('click', () => dialog.close())
 
   if (!settings.apiKey) setTimeout(() => dialog.showModal(), 500)
   setStatus('Ready — edit the document and press Ctrl+Enter to submit')
