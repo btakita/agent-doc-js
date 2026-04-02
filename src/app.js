@@ -467,6 +467,19 @@ function init() {
 
   document.getElementById('submit-btn').addEventListener('click', handleSubmit)
 
+  // Export button
+  document.getElementById('export-btn').addEventListener('click', () => {
+    const doc = editor.state.doc.toString()
+    const blob = new Blob([doc], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'agent-doc-export.md'
+    a.click()
+    URL.revokeObjectURL(url)
+    termLog('Document exported as agent-doc-export.md', 'log-success')
+  })
+
   // Reset button
   document.getElementById('reset-btn').addEventListener('click', () => {
     if (!confirm('Reset document to default? This clears all content and snapshot.')) return
