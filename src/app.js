@@ -1,14 +1,11 @@
-// Modules loaded by index.html bootstrap
-const { EditorView, keymap, lineNumbers } = window.__CM.view
-const { EditorState } = window.__CM.state
-const { markdown } = window.__CM.md
-const { defaultKeymap, history, historyKeymap } = window.__CM.commands
-const { oneDark } = window.__CM.theme
-const { createPatch } = window.__CM.diff
+import { EditorView, keymap, lineNumbers } from '@codemirror/view'
+import { EditorState } from '@codemirror/state'
+import { markdown } from '@codemirror/lang-markdown'
+import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { oneDark } from '@codemirror/theme-one-dark'
+import { createPatch } from 'diff'
 
 // --- Settings ---
-
-const SETTINGS_KEYS = ['apiKey', 'model', 'systemPrompt']
 
 function loadSettings() {
   return {
@@ -19,8 +16,8 @@ function loadSettings() {
 }
 
 function saveSettings(settings) {
-  for (const key of SETTINGS_KEYS) {
-    if (settings[key]) {
+  for (const key of ['apiKey', 'model', 'systemPrompt']) {
+    if (settings[key] != null) {
       localStorage.setItem(`agent-doc:${key}`, settings[key])
     }
   }
@@ -41,7 +38,7 @@ function computeDiff(oldText, newText) {
   return createPatch('document', oldText, newText, 'snapshot', 'current')
 }
 
-// --- Template parsing ---
+// --- Template patch application ---
 
 function applyPatches(doc, response) {
   const patchRegex = /<!-- patch:(\w+) -->([\s\S]*?)<!-- \/patch:\1 -->/g
@@ -59,20 +56,22 @@ function applyPatches(doc, response) {
       const isAppend = openTag.includes('patch=append')
       const isPrepend = openTag.includes('patch=prepend')
       if (isAppend) {
+        const existingContent = componentMatch[0].slice(
+          componentMatch[1].length,
+          componentMatch[0].length - componentMatch[2].length,
+        )
         result = result.replace(
           componentMatch[0],
-          componentMatch[1] + componentMatch[0].slice(
-            componentMatch[1].length,
-            componentMatch[0].length - componentMatch[2].length,
-          ) + patchContent + componentMatch[2],
+          componentMatch[1] + existingContent + patchContent + componentMatch[2],
         )
       } else if (isPrepend) {
+        const existingContent = componentMatch[0].slice(
+          componentMatch[1].length,
+          componentMatch[0].length - componentMatch[2].length,
+        )
         result = result.replace(
           componentMatch[0],
-          componentMatch[1] + patchContent + componentMatch[0].slice(
-            componentMatch[1].length,
-            componentMatch[0].length - componentMatch[2].length,
-          ) + componentMatch[2],
+          componentMatch[1] + patchContent + existingContent + componentMatch[2],
         )
       } else {
         result = result.replace(
@@ -110,14 +109,8 @@ For template documents, respond to the user's edits naturally. Address their que
     },
   ]
 
-  const body = {
-    model,
-    max_tokens: 4096,
-    messages,
-  }
-  if (systemPrompt) {
-    body.system = systemPrompt
-  }
+  const body = { model, max_tokens: 4096, messages }
+  if (systemPrompt) body.system = systemPrompt
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -139,23 +132,26 @@ For template documents, respond to the user's edits naturally. Address their que
   return data.content[0].text
 }
 
-// --- Editor setup ---
+// --- Editor ---
 
 function createEditor(container, initialContent) {
-  const state = EditorState.create({
-    doc: initialContent,
-    extensions: [
-      lineNumbers(),
-      history(),
-      markdown(),
-      oneDark,
-      keymap.of([...defaultKeymap, ...historyKeymap]),
-      EditorView.lineWrapping,
-    ],
-  })
-
   return new EditorView({
-    state,
+    state: EditorState.create({
+      doc: initialContent,
+      extensions: [
+        lineNumbers(),
+        history(),
+        markdown(),
+        oneDark,
+        keymap.of([...defaultKeymap, ...historyKeymap]),
+        EditorView.lineWrapping,
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            localStorage.setItem('agent-doc:document', update.state.doc.toString())
+          }
+        }),
+      ],
+    }),
     parent: container,
   })
 }
@@ -201,32 +197,17 @@ async function handleSubmit() {
   }
 
   isProcessing = true
-  const submitBtn = document.getElementById('submit-btn')
-  submitBtn.disabled = true
+  document.getElementById('submit-btn').disabled = true
   setStatus('Calling Claude...')
 
   try {
     const response = await callClaude(
-      settings.apiKey,
-      settings.model,
-      settings.systemPrompt,
-      diff,
-      currentDoc,
+      settings.apiKey, settings.model, settings.systemPrompt, diff, currentDoc,
     )
-
-    // Apply patches to the document
     const updatedDoc = applyPatches(currentDoc, response)
-
-    // Update editor
     editor.dispatch({
-      changes: {
-        from: 0,
-        to: editor.state.doc.length,
-        insert: updatedDoc,
-      },
+      changes: { from: 0, to: editor.state.doc.length, insert: updatedDoc },
     })
-
-    // Update snapshot
     setSnapshot(updatedDoc)
     setStatus('Response received')
   } catch (err) {
@@ -234,32 +215,18 @@ async function handleSubmit() {
     console.error(err)
   } finally {
     isProcessing = false
-    submitBtn.disabled = false
+    document.getElementById('submit-btn').disabled = false
   }
 }
 
 function init() {
   const savedDoc = localStorage.getItem('agent-doc:document') || DEFAULT_DOC
-  const container = document.getElementById('editor')
-  editor = createEditor(container, savedDoc)
+  editor = createEditor(document.getElementById('editor'), savedDoc)
 
-  if (!getSnapshot()) {
-    setSnapshot(savedDoc)
-  }
+  if (!getSnapshot()) setSnapshot(savedDoc)
 
-  // Auto-save document to localStorage via EditorView.updateListener
-  editor.dispatch({
-    effects: EditorView.updateListener.of((update) => {
-      if (update.docChanged) {
-        localStorage.setItem('agent-doc:document', update.state.doc.toString())
-      }
-    }),
-  })
-
-  // Submit button
   document.getElementById('submit-btn').addEventListener('click', handleSubmit)
 
-  // Ctrl+Enter to submit
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault()
@@ -278,9 +245,7 @@ function init() {
     dialog.showModal()
   })
 
-  document.getElementById('settings-cancel').addEventListener('click', () => {
-    dialog.close()
-  })
+  document.getElementById('settings-cancel').addEventListener('click', () => dialog.close())
 
   dialog.addEventListener('close', () => {
     if (dialog.returnValue === '') return
@@ -294,10 +259,7 @@ function init() {
     setStatus('Settings saved')
   })
 
-  if (!settings.apiKey) {
-    setTimeout(() => dialog.showModal(), 500)
-  }
-
+  if (!settings.apiKey) setTimeout(() => dialog.showModal(), 500)
   setStatus('Ready — edit the document and press Ctrl+Enter to submit')
 }
 

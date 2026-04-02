@@ -49,31 +49,6 @@
     </form>
   </dialog>
 
-  <script type="module">
-    // Load all CodeMirror from a single esm.sh bundle to avoid duplicate @codemirror/state instances
-    const CM_STATE = 'https://esm.sh/@codemirror/state@6.5.2'
-    const CM_VIEW = 'https://esm.sh/@codemirror/view@6.36.5?external=@codemirror/state'
-    const CM_LANG = 'https://esm.sh/@codemirror/language@6.10.8?external=@codemirror/state,@codemirror/view'
-    const CM_COMMANDS = 'https://esm.sh/@codemirror/commands@6.8.0?external=@codemirror/state,@codemirror/view,@codemirror/language'
-    const CM_MARKDOWN = 'https://esm.sh/@codemirror/lang-markdown@6.3.2?external=@codemirror/state,@codemirror/view,@codemirror/language'
-    const CM_THEME = 'https://esm.sh/@codemirror/theme-one-dark@6.1.2?external=@codemirror/state,@codemirror/view'
-    const DIFF = 'https://esm.sh/diff@7.0.0'
-
-    const [state, view, lang, commands, md, theme, diff] = await Promise.all([
-      import(CM_STATE),
-      import(CM_VIEW),
-      import(CM_LANG),
-      import(CM_COMMANDS),
-      import(CM_MARKDOWN),
-      import(CM_THEME),
-      import(DIFF),
-    ])
-
-    // Expose modules globally for app.js
-    window.__CM = { state, view, lang, commands, md, theme, diff }
-
-    // Load app after deps are ready
-    await import('./app.js')
-  </script>
+  <script type="module" src="dist/app.js"></script>
 </body>
 </html>
