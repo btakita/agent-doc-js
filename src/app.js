@@ -146,6 +146,12 @@ function createEditor(container, initialContent) {
     state: EditorState.create({
       doc: initialContent,
       extensions: [
+        // Ctrl+Enter to submit — must come before defaultKeymap to prevent newline insertion
+        keymap.of([{
+          key: 'Ctrl-Enter',
+          mac: 'Cmd-Enter',
+          run: () => { handleSubmit(); return true },
+        }]),
         lineNumbers(),
         cmHistory(),
         markdown(),
@@ -257,13 +263,6 @@ function init() {
   if (!getSnapshot()) setSnapshot(savedDoc)
 
   document.getElementById('submit-btn').addEventListener('click', handleSubmit)
-
-  document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault()
-      handleSubmit()
-    }
-  })
 
   // Settings dialog
   const dialog = document.getElementById('settings-dialog')
