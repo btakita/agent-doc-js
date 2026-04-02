@@ -173,6 +173,9 @@ Welcome to agent-doc. Start typing below and click Submit (or Ctrl+Enter) to get
 let editor
 let isProcessing = false
 
+// Expose for testing via DevTools
+window.__agentDoc = { get editor() { return editor } }
+
 function setStatus(text) {
   document.getElementById('status-text').textContent = text
 }
