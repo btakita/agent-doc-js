@@ -306,6 +306,21 @@ dialog textarea {
   cursor: pointer;
 }
 
+.reset-skill {
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  background: var(--border);
+  color: var(--text-muted);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.reset-skill:hover {
+  color: var(--text);
+}
+
 #settings-save {
   background: var(--accent);
   color: var(--bg);

@@ -612,6 +612,10 @@ function init() {
 
   document.getElementById('settings-cancel').addEventListener('click', () => dialog.close())
 
+  document.getElementById('reset-skill-btn').addEventListener('click', () => {
+    document.getElementById('system-prompt-input').value = DEFAULT_SKILL
+  })
+
   if (!settings.apiKey) setTimeout(() => dialog.showModal(), 500)
   setStatus('Ready — edit the document and press Ctrl+Enter to submit')
 }
