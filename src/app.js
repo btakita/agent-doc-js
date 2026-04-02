@@ -239,6 +239,16 @@ function setStatus(text) {
   document.getElementById('status-text').textContent = text
 }
 
+function termLog(text, cls = 'log-info') {
+  const output = document.getElementById('terminal-output')
+  if (!output) return
+  const line = document.createElement('div')
+  const ts = new Date().toLocaleTimeString()
+  line.innerHTML = `<span class="log-timestamp">[${ts}]</span> <span class="${cls}">${text}</span>`
+  output.appendChild(line)
+  output.scrollTop = output.scrollHeight
+}
+
 async function handleSubmit() {
   if (isProcessing) return
 
@@ -264,33 +274,44 @@ async function handleSubmit() {
   submitBtn.textContent = 'Submitting...'
   document.getElementById('status-bar').classList.add('loading')
 
+  termLog(`Submitting (model: ${settings.model})`)
+  termLog(`Diff: ${diff.split('\n').length} lines changed`)
+
   // Search Ragie for relevant context (if configured)
   let ragieContext = null
   if (settings.ragieKey) {
     setStatus('Searching knowledge base...')
-    // Use the diff as the search query (extract the added lines)
+    termLog('Searching Ragie knowledge base...')
     const addedLines = diff.split('\n').filter(l => l.startsWith('+')).map(l => l.slice(1)).join(' ').slice(0, 500)
     ragieContext = await searchRagie(settings.ragieKey, settings.proxyUrl, addedLines)
     if (ragieContext) {
+      const chunkCount = (ragieContext.match(/---/g) || []).length + 1
+      termLog(`Retrieved ${chunkCount} chunks from knowledge base`, 'log-context')
       setStatus('Context retrieved. Calling Claude...')
     } else {
+      termLog('No relevant context found in knowledge base')
       setStatus('Calling Claude...')
     }
   } else {
     setStatus('Calling Claude...')
   }
 
+  termLog('Calling Claude API...')
+
   try {
     const response = await callClaude(
       settings.apiKey, settings.model, settings.systemPrompt, diff, currentDoc, ragieContext,
     )
+    termLog(`Response: ${response.length} chars`, 'log-success')
     const updatedDoc = applyPatches(currentDoc, response)
     editor.dispatch({
       changes: { from: 0, to: editor.state.doc.length, insert: updatedDoc },
     })
     setSnapshot(updatedDoc)
+    termLog('Document updated', 'log-success')
     setStatus('Response received')
   } catch (err) {
+    termLog(`Error: ${err.message}`, 'log-error')
     setStatus(`Error: ${err.message}`)
     console.error(err)
   } finally {
@@ -329,6 +350,20 @@ function init() {
   if (!getSnapshot()) setSnapshot(savedDoc)
 
   document.getElementById('submit-btn').addEventListener('click', handleSubmit)
+
+  // Terminal toggle/clear
+  document.getElementById('terminal-toggle').addEventListener('click', (e) => {
+    e.stopPropagation()
+    document.getElementById('terminal-container').classList.toggle('collapsed')
+  })
+  document.getElementById('terminal-header').addEventListener('click', () => {
+    document.getElementById('terminal-container').classList.toggle('collapsed')
+  })
+  document.getElementById('terminal-clear').addEventListener('click', (e) => {
+    e.stopPropagation()
+    document.getElementById('terminal-output').innerHTML = ''
+  })
+  termLog('agent-doc-js initialized', 'log-success')
 
   // Toolbar model dropdown — auto-saves on change
   const modelToolbar = document.getElementById('model-toolbar')
