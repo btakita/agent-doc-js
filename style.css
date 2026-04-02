@@ -114,7 +114,7 @@ body {
 #terminal-container {
   display: flex;
   flex-direction: column;
-  height: 200px;
+  height: calc(10 * 1.5em + 40px); /* 10 lines + header + input */
   min-height: 0;
   border-top: 1px solid var(--border);
 }
@@ -169,6 +169,31 @@ body {
 #terminal-output .log-error { color: var(--red); }
 #terminal-output .log-context { color: var(--accent); }
 #terminal-output .log-timestamp { color: #585b70; }
+
+#terminal-prompt {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: #11111b;
+  border-top: 1px solid var(--border);
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 12px;
+}
+
+#terminal-prompt-char {
+  color: var(--green);
+  margin-right: 8px;
+}
+
+#terminal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+}
 
 #status-bar {
   padding: 4px 16px;

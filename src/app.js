@@ -363,6 +363,60 @@ function init() {
     e.stopPropagation()
     document.getElementById('terminal-output').innerHTML = ''
   })
+  // Terminal prompt input
+  const termInput = document.getElementById('terminal-input')
+  termInput.addEventListener('keydown', async (e) => {
+    if (e.key !== 'Enter' || !termInput.value.trim()) return
+    const cmd = termInput.value.trim()
+    termInput.value = ''
+    termLog(`&gt; ${cmd}`)
+
+    // Send as a direct Claude prompt (not document edit)
+    const s = loadSettings()
+    if (!s.apiKey) {
+      termLog('No API key configured', 'log-error')
+      return
+    }
+
+    termLog('Running...', 'log-info')
+    try {
+      const proxyUrl = localStorage.getItem('agent-doc:proxyUrl')
+      const apiUrl = proxyUrl
+        ? `${proxyUrl.replace(/\/$/, '')}/v1/messages`
+        : 'https://api.anthropic.com/v1/messages'
+
+      const resp = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': s.apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: s.model,
+          max_tokens: 1024,
+          messages: [{ role: 'user', content: cmd }],
+        }),
+      })
+
+      if (!resp.ok) {
+        const err = await resp.text()
+        termLog(`Error (${resp.status}): ${err.slice(0, 200)}`, 'log-error')
+        return
+      }
+
+      const data = await resp.json()
+      const text = data.content[0].text
+      // Display response line by line
+      for (const line of text.split('\n')) {
+        termLog(line, 'log-success')
+      }
+    } catch (err) {
+      termLog(`Error: ${err.message}`, 'log-error')
+    }
+  })
+
   termLog('agent-doc-js initialized', 'log-success')
 
   // Toolbar model dropdown — auto-saves on change
