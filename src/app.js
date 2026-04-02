@@ -12,12 +12,13 @@ function loadSettings() {
     apiKey: localStorage.getItem('agent-doc:apiKey') || '',
     model: localStorage.getItem('agent-doc:model') || 'claude-haiku-4-5-20251001',
     proxyUrl: localStorage.getItem('agent-doc:proxyUrl') || '',
+    ragieKey: localStorage.getItem('agent-doc:ragieKey') || '',
     systemPrompt: localStorage.getItem('agent-doc:systemPrompt') || '',
   }
 }
 
 function saveSettings(settings) {
-  for (const key of ['apiKey', 'model', 'proxyUrl', 'systemPrompt']) {
+  for (const key of ['apiKey', 'model', 'proxyUrl', 'ragieKey', 'systemPrompt']) {
     if (settings[key] != null) {
       localStorage.setItem(`agent-doc:${key}`, settings[key])
     }
@@ -85,13 +86,42 @@ function applyPatches(doc, response) {
   return result
 }
 
+// --- Ragie retrieval ---
+
+async function searchRagie(ragieKey, proxyUrl, query) {
+  if (!ragieKey || !query) return null
+
+  const apiUrl = proxyUrl
+    ? `${proxyUrl.replace(/\/$/, '')}/ragie/retrievals`
+    : 'https://api.ragie.ai/retrievals'
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${ragieKey}`,
+      },
+      body: JSON.stringify({ query, rerank: true }),
+    })
+
+    if (!response.ok) return null
+
+    const data = await response.json()
+    const chunks = data.scored_chunks || []
+    // Return top 5 chunks formatted as context
+    return chunks.slice(0, 5).map(c =>
+      `[${c.document_name}] (score: ${c.score?.toFixed(2)})\n${c.text}`
+    ).join('\n\n---\n\n')
+  } catch {
+    return null
+  }
+}
+
 // --- Claude API ---
 
-async function callClaude(apiKey, model, systemPrompt, diff, document) {
-  const messages = [
-    {
-      role: 'user',
-      content: `You are an agent-doc assistant. The user has edited a document. Respond to their changes.
+async function callClaude(apiKey, model, systemPrompt, diff, document, ragieContext) {
+  let userContent = `You are an agent-doc assistant. The user has edited a document. Respond to their changes.
 
 <document>
 ${document}
@@ -99,16 +129,32 @@ ${document}
 
 <diff>
 ${diff}
-</diff>
+</diff>`
+
+  if (ragieContext) {
+    userContent += `
+
+<retrieved-context>
+The following documents were retrieved from the knowledge base and may be relevant:
+
+${ragieContext}
+</retrieved-context>`
+  }
+
+  userContent += `
 
 Respond with patch blocks targeting the document's components. Use this format:
 <!-- patch:exchange -->
 Your response here
 <!-- /patch:exchange -->
 
-For template documents, respond to the user's edits naturally. Address their questions, continue the conversation, and provide useful content.`,
-    },
-  ]
+For template documents, respond to the user's edits naturally. Address their questions, continue the conversation, and provide useful content.`
+
+  if (ragieContext) {
+    userContent += ` When relevant, reference information from the retrieved context.`
+  }
+
+  const messages = [{ role: 'user', content: userContent }]
 
   const body = { model, max_tokens: 4096, messages }
   if (systemPrompt) body.system = systemPrompt
@@ -217,11 +263,26 @@ async function handleSubmit() {
   submitBtn.disabled = true
   submitBtn.textContent = 'Submitting...'
   document.getElementById('status-bar').classList.add('loading')
-  setStatus('Calling Claude...')
+
+  // Search Ragie for relevant context (if configured)
+  let ragieContext = null
+  if (settings.ragieKey) {
+    setStatus('Searching knowledge base...')
+    // Use the diff as the search query (extract the added lines)
+    const addedLines = diff.split('\n').filter(l => l.startsWith('+')).map(l => l.slice(1)).join(' ').slice(0, 500)
+    ragieContext = await searchRagie(settings.ragieKey, settings.proxyUrl, addedLines)
+    if (ragieContext) {
+      setStatus('Context retrieved. Calling Claude...')
+    } else {
+      setStatus('Calling Claude...')
+    }
+  } else {
+    setStatus('Calling Claude...')
+  }
 
   try {
     const response = await callClaude(
-      settings.apiKey, settings.model, settings.systemPrompt, diff, currentDoc,
+      settings.apiKey, settings.model, settings.systemPrompt, diff, currentDoc, ragieContext,
     )
     const updatedDoc = applyPatches(currentDoc, response)
     editor.dispatch({
@@ -246,7 +307,7 @@ function applyHashParams() {
   const params = new URLSearchParams(hash)
   let applied = false
   for (const [key, value] of params) {
-    if (value && ['apiKey', 'model', 'proxyUrl', 'systemPrompt'].includes(key)) {
+    if (value && ['apiKey', 'model', 'proxyUrl', 'ragieKey', 'systemPrompt'].includes(key)) {
       localStorage.setItem(`agent-doc:${key}`, value)
       applied = true
     }
@@ -286,6 +347,7 @@ function init() {
     document.getElementById('api-key-input').value = settings.apiKey
     document.getElementById('model-select').value = settings.model
     document.getElementById('proxy-url-input').value = settings.proxyUrl
+    document.getElementById('ragie-key-input').value = settings.ragieKey
     document.getElementById('system-prompt-input').value = settings.systemPrompt
     dialog.showModal()
   })
@@ -296,6 +358,7 @@ function init() {
       apiKey: document.getElementById('api-key-input').value,
       model: document.getElementById('model-select').value,
       proxyUrl: document.getElementById('proxy-url-input').value,
+      ragieKey: document.getElementById('ragie-key-input').value,
       systemPrompt: document.getElementById('system-prompt-input').value,
     }
     saveSettings(newSettings)
