@@ -172,6 +172,14 @@ When you need information from the knowledge base to answer the user's question,
 
 The system will execute the search and provide results. You can then use the results in your response.
 
+## Pending Component
+
+If the document has a \`<!-- agent:pending -->\` component, EVERY response MUST include a \`<!-- patch:pending -->\` block reflecting the current task state:
+- Mark completed items with \`[x]\`
+- Add new items discovered during the conversation
+- Move active items to the top
+- Remove stale items
+
 ## Guidelines
 
 - Respond naturally to user edits
@@ -335,6 +343,12 @@ agent_doc_format: template
 Welcome to agent-doc. Start typing below and click Submit (or Ctrl+Enter) to get a response.
 
 <!-- /agent:exchange -->
+
+## Pending
+
+<!-- agent:pending patch=replace -->
+- [ ] Start a conversation
+<!-- /agent:pending -->
 `
 
 let editor

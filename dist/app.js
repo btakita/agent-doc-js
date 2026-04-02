@@ -58,6 +58,14 @@ When you need information from the knowledge base to answer the user's question,
 
 The system will execute the search and provide results. You can then use the results in your response.
 
+## Pending Component
+
+If the document has a \`<!-- agent:pending -->\` component, EVERY response MUST include a \`<!-- patch:pending -->\` block reflecting the current task state:
+- Mark completed items with \`[x]\`
+- Add new items discovered during the conversation
+- Move active items to the top
+- Remove stale items
+
 ## Guidelines
 
 - Respond naturally to user edits
@@ -92,6 +100,12 @@ agent_doc_format: template
 Welcome to agent-doc. Start typing below and click Submit (or Ctrl+Enter) to get a response.
 
 <!-- /agent:exchange -->
+
+## Pending
+
+<!-- agent:pending patch=replace -->
+- [ ] Start a conversation
+<!-- /agent:pending -->
 `,M3,HZ=!1;window.__agentDoc={get editor(){return M3}};function k0(Z){document.getElementById("status-text").textContent=Z}function j9(Z,$="log-info"){let J=document.getElementById("terminal-output");if(!J)return;let X=document.createElement("div"),Q=new Date().toLocaleTimeString();X.innerHTML=`<span class="log-timestamp">[${Q}]</span> <span class="${$}">${Z}</span>`,J.appendChild(X),J.scrollTop=J.scrollHeight}async function iX(){if(HZ)return;let Z=x4();if(!Z.apiKey){document.getElementById("settings-dialog").showModal(),k0("Please set your API key first");return}let $=M3.state.doc.toString(),J=DZ(),X=gW(J,$);if(!X){k0("No changes to submit");return}HZ=!0;let Q=document.getElementById("submit-btn");Q.disabled=!0,Q.textContent="Submitting...",document.getElementById("status-bar").classList.add("loading"),j9(`Submitting (model: ${Z.model})`),j9(`Diff: ${X.split(`
 `).length} lines changed`),k0("Calling Claude..."),j9("Calling Claude API...");try{let Y=await lW(Z.apiKey,Z.model,Z.systemPrompt,X,$,null);j9(`Response: ${Y.length} chars`,"log-success");let K=pW($,Y);M3.dispatch({changes:{from:0,to:M3.state.doc.length,insert:K}}),cX(K),j9("Document updated","log-success"),k0("Response received")}catch(Y){j9(`Error: ${Y.message}`,"log-error"),k0(`Error: ${Y.message}`),console.error(Y)}finally{HZ=!1,Q.disabled=!1,Q.textContent="Submit",document.getElementById("status-bar").classList.remove("loading")}}function iW(){let Z=window.location.hash.slice(1);if(!Z)return!1;let $=new URLSearchParams(Z),J=!1;for(let[X,Q]of $)if(Q&&["apiKey","model","proxyUrl","ragieKey","systemPrompt"].includes(X))localStorage.setItem(`agent-doc:${X}`,Q),J=!0;if(J)window.history.replaceState(null,"",window.location.pathname);return J}function rW(){iW();let Z=localStorage.getItem("agent-doc:document")||sW;if(M3=cW(document.getElementById("editor"),Z),!DZ())cX(Z);document.getElementById("submit-btn").addEventListener("click",iX),document.getElementById("terminal-toggle").addEventListener("click",(Y)=>{Y.stopPropagation(),document.getElementById("terminal-container").classList.toggle("collapsed")}),document.getElementById("terminal-header").addEventListener("click",()=>{document.getElementById("terminal-container").classList.toggle("collapsed")}),document.getElementById("terminal-clear").addEventListener("click",(Y)=>{Y.stopPropagation(),document.getElementById("terminal-output").innerHTML=""});let $=document.getElementById("terminal-input");$.addEventListener("keydown",async(Y)=>{if(Y.key!=="Enter"||!$.value.trim())return;let K=$.value.trim();$.value="",j9(`&gt; ${K}`);let U=x4();if(!U.apiKey){j9("No API key configured","log-error");return}j9("Running...","log-info");try{let q=localStorage.getItem("agent-doc:proxyUrl"),G=q?`${q.replace(/\/$/,"")}/v1/messages`:"https://api.anthropic.com/v1/messages",W=await fetch(G,{method:"POST",headers:{"Content-Type":"application/json","x-api-key":U.apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:U.model,max_tokens:1024,messages:[{role:"user",content:K}]})});if(!W.ok){let _=await W.text();j9(`Error (${W.status}): ${_.slice(0,200)}`,"log-error");return}let j=(await W.json()).content[0].text;for(let _ of j.split(`
 `))j9(_,"log-success")}catch(q){j9(`Error: ${q.message}`,"log-error")}}),j9("agent-doc-js initialized","log-success");let J=document.getElementById("model-toolbar"),X=x4();J.value=X.model,J.addEventListener("change",()=>{X.model=J.value,localStorage.setItem("agent-doc:model",J.value),k0(`Model: ${J.options[J.selectedIndex].text}`)});let Q=document.getElementById("settings-dialog");if(document.getElementById("settings-btn").addEventListener("click",()=>{document.getElementById("api-key-input").value=X.apiKey,document.getElementById("model-select").value=X.model,document.getElementById("proxy-url-input").value=X.proxyUrl,document.getElementById("ragie-key-input").value=X.ragieKey,document.getElementById("system-prompt-input").value=X.systemPrompt||sX,Q.showModal()}),document.getElementById("settings-save").addEventListener("click",(Y)=>{Y.preventDefault();let K={apiKey:document.getElementById("api-key-input").value,model:document.getElementById("model-select").value,proxyUrl:document.getElementById("proxy-url-input").value,ragieKey:document.getElementById("ragie-key-input").value,systemPrompt:document.getElementById("system-prompt-input").value};fW(K),Object.assign(X,K),J.value=K.model,k0("Settings saved"),Q.close()}),document.getElementById("settings-cancel").addEventListener("click",()=>Q.close()),!X.apiKey)setTimeout(()=>Q.showModal(),500);k0("Ready — edit the document and press Ctrl+Enter to submit")}rW();
