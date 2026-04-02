@@ -29,23 +29,43 @@ export default {
 }
 
 async function proxyClaudeWithRetry(request, env) {
-  // Fall back to worker secret when client doesn't send a key
-  const apiKey = request.headers.get('x-api-key') || env.ANTHROPIC_API_KEY
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'No API key provided and no server key configured' }), {
-      status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-    })
+  // Determine auth: session token (Bearer) vs API key (x-api-key)
+  const clientApiKey = request.headers.get('x-api-key')
+  const clientBearer = request.headers.get('Authorization')
+
+  // Detect session token: starts with "sk-ant-sid" or passed as Bearer
+  const isSessionToken = clientBearer ||
+    (clientApiKey && clientApiKey.startsWith('sk-ant-sid'))
+
+  let apiUrl, authHeaders
+  if (isSessionToken) {
+    // Session token -> claude.ai API
+    const token = clientBearer
+      ? clientBearer.replace(/^Bearer\s+/i, '')
+      : clientApiKey
+    apiUrl = 'https://api.claude.ai/api/v1/messages'
+    authHeaders = { 'Authorization': `Bearer ${token}` }
+  } else {
+    // API key -> anthropic.com API (fall back to worker secret)
+    const apiKey = clientApiKey || env.ANTHROPIC_API_KEY
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: 'No API key provided and no server key configured' }), {
+        status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      })
+    }
+    apiUrl = 'https://api.anthropic.com/v1/messages'
+    authHeaders = { 'x-api-key': apiKey }
   }
 
   const maxRetries = 3
   let lastResponse
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
-    const apiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    const apiResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
+        ...authHeaders,
         'anthropic-version': request.headers.get('anthropic-version') || '2023-06-01',
       },
       body: request.clone().body,

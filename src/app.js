@@ -348,12 +348,19 @@ async function callClaudeRaw(apiKey, model, systemPrompt, messages) {
     ? `${proxyUrl.replace(/\/$/, '')}/v1/messages`
     : 'https://api.anthropic.com/v1/messages'
 
+  const isSessionToken = apiKey && apiKey.startsWith('sk-ant-sid')
   const headers = {
     'Content-Type': 'application/json',
     'anthropic-version': '2023-06-01',
     'anthropic-dangerous-direct-browser-access': 'true',
   }
-  if (apiKey) headers['x-api-key'] = apiKey
+  if (apiKey) {
+    if (isSessionToken) {
+      headers['Authorization'] = `Bearer ${apiKey}`
+    } else {
+      headers['x-api-key'] = apiKey
+    }
+  }
 
   const response = await fetch(apiUrl, {
     method: 'POST',
