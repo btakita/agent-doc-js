@@ -1,9 +1,10 @@
-import { EditorView, keymap, lineNumbers } from '@codemirror/view'
-import { EditorState } from '@codemirror/state'
-import { markdown } from '@codemirror/lang-markdown'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { oneDark } from '@codemirror/theme-one-dark'
-import { createPatch } from 'diff'
+// Modules loaded by index.html bootstrap
+const { EditorView, keymap, lineNumbers } = window.__CM.view
+const { EditorState } = window.__CM.state
+const { markdown } = window.__CM.md
+const { defaultKeymap, history, historyKeymap } = window.__CM.commands
+const { oneDark } = window.__CM.theme
+const { createPatch } = window.__CM.diff
 
 // --- Settings ---
 
@@ -42,22 +43,6 @@ function computeDiff(oldText, newText) {
 
 // --- Template parsing ---
 
-function parseComponents(doc) {
-  const components = {}
-  const regex = /<!-- agent:(\w+)(?:\s+[^>]*)? -->([\s\S]*?)<!-- \/agent:\1 -->/g
-  let match
-  while ((match = regex.exec(doc)) !== null) {
-    components[match[1]] = {
-      name: match[1],
-      content: match[2],
-      start: match.index,
-      end: match.index + match[0].length,
-      full: match[0],
-    }
-  }
-  return components
-}
-
 function applyPatches(doc, response) {
   const patchRegex = /<!-- patch:(\w+) -->([\s\S]*?)<!-- \/patch:\1 -->/g
   let result = doc
@@ -70,7 +55,6 @@ function applyPatches(doc, response) {
     )
     const componentMatch = result.match(componentRegex)
     if (componentMatch) {
-      // Check for patch mode in the opening tag
       const openTag = componentMatch[1]
       const isAppend = openTag.includes('patch=append')
       const isPrepend = openTag.includes('patch=prepend')
@@ -91,7 +75,6 @@ function applyPatches(doc, response) {
           ) + componentMatch[2],
         )
       } else {
-        // Default: replace
         result = result.replace(
           componentMatch[0],
           componentMatch[1] + patchContent + componentMatch[2],
@@ -256,19 +239,21 @@ async function handleSubmit() {
 }
 
 function init() {
-  // Load saved document or use default
   const savedDoc = localStorage.getItem('agent-doc:document') || DEFAULT_DOC
   const container = document.getElementById('editor')
   editor = createEditor(container, savedDoc)
 
-  // Initialize snapshot if needed
   if (!getSnapshot()) {
     setSnapshot(savedDoc)
   }
 
-  // Auto-save document to localStorage on changes
-  editor.dom.addEventListener('input', () => {
-    localStorage.setItem('agent-doc:document', editor.state.doc.toString())
+  // Auto-save document to localStorage via EditorView.updateListener
+  editor.dispatch({
+    effects: EditorView.updateListener.of((update) => {
+      if (update.docChanged) {
+        localStorage.setItem('agent-doc:document', update.state.doc.toString())
+      }
+    }),
   })
 
   // Submit button
@@ -309,7 +294,6 @@ function init() {
     setStatus('Settings saved')
   })
 
-  // Show settings on first visit if no API key
   if (!settings.apiKey) {
     setTimeout(() => dialog.showModal(), 500)
   }
