@@ -10,7 +10,7 @@ import { createPatch } from 'diff'
 function loadSettings() {
   return {
     apiKey: localStorage.getItem('agent-doc:apiKey') || '',
-    model: localStorage.getItem('agent-doc:model') || 'claude-sonnet-4-6',
+    model: localStorage.getItem('agent-doc:model') || 'claude-haiku-4-5-20251001',
     proxyUrl: localStorage.getItem('agent-doc:proxyUrl') || '',
     systemPrompt: localStorage.getItem('agent-doc:systemPrompt') || '',
   }

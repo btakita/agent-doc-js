@@ -28,7 +28,8 @@ if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
 fi
 
 # Encode as URL hash params
-HASH="apiKey=${TOKEN}&proxyUrl=${PROXY_URL}&model=claude-sonnet-4-6"
+MODEL="${AGENT_DOC_MODEL:-claude-haiku-4-5-20251001}"
+HASH="apiKey=${TOKEN}&proxyUrl=${PROXY_URL}&model=${MODEL}"
 
 echo ""
 echo "Open this URL in your browser to auto-configure agent-doc:"
