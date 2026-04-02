@@ -23,6 +23,7 @@ class DiffMarker extends GutterMarker {
 
 const addedMarker = new DiffMarker('added')
 const modifiedMarker = new DiffMarker('modified')
+const processingMarker = new DiffMarker('processing')
 
 const diffMarkerField = StateField.define({
   create: () => RangeSet.empty,
@@ -69,6 +70,32 @@ function computeDiffMarkers(state, snapshotText) {
   }
 
   return RangeSet.of(markers, true)
+}
+
+function markProcessing(view, snapshotText) {
+  const markers = []
+  const changes = diffLines(snapshotText, view.state.doc.toString())
+  let currentLine = 0
+
+  for (const part of changes) {
+    const lines = part.value.split('\n')
+    const lineCount = part.value.endsWith('\n') ? lines.length - 1 : lines.length
+
+    if (part.added) {
+      for (let i = 0; i < lineCount; i++) {
+        const lineNum = currentLine + i
+        if (lineNum < view.state.doc.lines) {
+          const pos = view.state.doc.line(lineNum + 1).from
+          markers.push(processingMarker.range(pos))
+        }
+      }
+      currentLine += lineCount
+    } else if (!part.removed) {
+      currentLine += lineCount
+    }
+  }
+
+  view.dispatch({ effects: setDiffMarkers.of(RangeSet.of(markers, true)) })
 }
 
 // --- Settings ---
@@ -527,6 +554,9 @@ async function handleSubmit() {
   submitBtn.disabled = true
   submitBtn.textContent = 'Submitting...'
   document.getElementById('status-bar').classList.add('loading')
+
+  // Mark changed lines with processing spinner
+  if (snapshot) markProcessing(editor, snapshot)
 
   termLog(`Submitting (model: ${settings.model})`)
   termLog(`Diff: ${diff.split('\n').length} lines changed`)

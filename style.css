@@ -132,6 +132,16 @@ body {
   background: var(--accent);
 }
 
+.diff-processing {
+  background: var(--accent);
+  animation: gutter-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes gutter-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
 #editor .cm-scroller {
   font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
   font-size: 14px;
