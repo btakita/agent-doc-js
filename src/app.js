@@ -341,6 +341,34 @@ async function callClaude(apiKey, model, skillMd, diff, doc, ragieContext) {
   return response.replace(/<ragie-search\s+query="[^"]*"\s*\/>/g, '').trim()
 }
 
+// --- Smart document update (preserves cursor position) ---
+
+function applySmartUpdate(view, newContent) {
+  const oldContent = view.state.doc.toString()
+  if (oldContent === newContent) return
+
+  // Compute character-level diff to find minimal changes
+  const changes = []
+  const diffs = diffLines(oldContent, newContent)
+
+  let pos = 0
+  for (const part of diffs) {
+    if (part.removed) {
+      const len = part.value.length
+      changes.push({ from: pos, to: pos + len })
+      pos += len
+    } else if (part.added) {
+      changes.push({ from: pos, to: pos, insert: part.value })
+    } else {
+      pos += part.value.length
+    }
+  }
+
+  if (changes.length > 0) {
+    view.dispatch({ changes, scrollIntoView: false })
+  }
+}
+
 // --- Editor ---
 
 function createEditor(container, initialContent) {
@@ -455,10 +483,8 @@ async function handleSubmit() {
       settings.apiKey, settings.model, settings.systemPrompt, diff, currentDoc, null,
     )
     termLog(`Response: ${response.length} chars`, 'log-success')
-    const updatedDoc = applyPatches(currentDoc, response)
-    editor.dispatch({
-      changes: { from: 0, to: editor.state.doc.length, insert: updatedDoc },
-    })
+    const updatedDoc = applyPatches(editor.state.doc.toString(), response)
+    applySmartUpdate(editor, updatedDoc)
     setSnapshot(updatedDoc)
     termLog('Document updated', 'log-success')
     setStatus('Response received')
