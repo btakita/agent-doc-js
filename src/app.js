@@ -157,6 +157,32 @@ function applyPatches(doc, response) {
   return result
 }
 
+// --- Prompt injection scanner ---
+
+function scanForInjection(text) {
+  const warnings = []
+  const patterns = [
+    { pattern: /ignore\s+(all\s+)?previous\s+instructions/i, label: '"Ignore previous instructions" directive' },
+    { pattern: /you\s+are\s+now\s+/i, label: '"You are now..." role override' },
+    { pattern: /\bsystem:\s/i, label: 'System prompt injection attempt' },
+    { pattern: /\bact\s+as\s+(a|an)\s+/i, label: '"Act as..." role override' },
+    { pattern: /do\s+not\s+follow\s+(the\s+)?(system|original)\s+/i, label: 'System prompt override attempt' },
+    { pattern: /base64[^a-z]/i, label: 'Base64 encoded content (potential hidden instructions)' },
+    { pattern: /\beval\s*\(/, label: 'JavaScript eval() call' },
+    { pattern: /<script\b/i, label: 'Script tag injection' },
+    { pattern: /\bpassword\b.*\b(reveal|show|display|output)\b/i, label: 'Credential extraction attempt' },
+    { pattern: /\b(api[_-]?key|secret|token)\b.*\b(include|output|print|reveal)\b/i, label: 'Secret extraction attempt' },
+  ]
+
+  for (const { pattern, label } of patterns) {
+    if (pattern.test(text)) {
+      warnings.push(label)
+    }
+  }
+
+  return warnings
+}
+
 // --- Default SKILL.md ---
 
 const DEFAULT_SKILL = `You are an agent-doc assistant. You help users edit and develop documents interactively.
@@ -474,6 +500,37 @@ function init() {
   if (!getSnapshot()) setSnapshot(savedDoc)
 
   document.getElementById('submit-btn').addEventListener('click', handleSubmit)
+
+  // Import button
+  const importFile = document.getElementById('import-file')
+  document.getElementById('import-btn').addEventListener('click', () => importFile.click())
+  importFile.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const text = await file.text()
+
+    // Scan for prompt injection patterns
+    const warnings = scanForInjection(text)
+    if (warnings.length > 0) {
+      const warningText = warnings.map(w => `- ${w}`).join('\n')
+      termLog(`WARNING: Potential prompt injection detected in "${file.name}"`, 'log-error')
+      for (const w of warnings) termLog(`  ${w}`, 'log-error')
+      if (!confirm(`Warning: Potential prompt injection detected:\n\n${warningText}\n\nLoad anyway?`)) {
+        termLog('Import cancelled by user', 'log-info')
+        importFile.value = ''
+        return
+      }
+    }
+
+    editor.dispatch({
+      changes: { from: 0, to: editor.state.doc.length, insert: text },
+    })
+    setSnapshot(text)
+    localStorage.setItem('agent-doc:document', text)
+    termLog(`Imported "${file.name}" (${text.length} chars)`, 'log-success')
+    setStatus(`Imported: ${file.name}`)
+    importFile.value = ''
+  })
 
   // Export button
   document.getElementById('export-btn').addEventListener('click', () => {
