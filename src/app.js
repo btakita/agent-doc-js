@@ -202,7 +202,9 @@ Rules:
 - Respond naturally to user edits
 - Address questions, continue conversations, provide useful content
 - When retrieved context is provided, reference it when relevant
-- Keep responses focused and concise`
+- Keep responses focused and concise
+- NEVER echo back the user's text in your patch response — only include YOUR response content
+- The patch content replaces/appends to the component — do not duplicate what's already there`
 
 // --- Ragie retrieval ---
 

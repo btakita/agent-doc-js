@@ -87,7 +87,9 @@ Rules:
 - Respond naturally to user edits
 - Address questions, continue conversations, provide useful content
 - When retrieved context is provided, reference it when relevant
-- Keep responses focused and concise`;async function lW(Z,$,J){if(!Z||!J)return null;let X=$?`${$.replace(/\/$/,"")}/ragie/retrievals`:"https://api.ragie.ai/retrievals";try{let Q=await fetch(X,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${Z}`},body:JSON.stringify({query:J,rerank:!0})});if(!Q.ok)return null;return((await Q.json()).scored_chunks||[]).slice(0,5).map((U)=>`[${U.document_name}] (score: ${U.score?.toFixed(2)})
+- Keep responses focused and concise
+- NEVER echo back the user's text in your patch response — only include YOUR response content
+- The patch content replaces/appends to the component — do not duplicate what's already there`;async function lW(Z,$,J){if(!Z||!J)return null;let X=$?`${$.replace(/\/$/,"")}/ragie/retrievals`:"https://api.ragie.ai/retrievals";try{let Q=await fetch(X,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${Z}`},body:JSON.stringify({query:J,rerank:!0})});if(!Q.ok)return null;return((await Q.json()).scored_chunks||[]).slice(0,5).map((U)=>`[${U.document_name}] (score: ${U.score?.toFixed(2)})
 ${U.text}`).join(`
 
 ---
