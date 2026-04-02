@@ -174,11 +174,23 @@ The system will execute the search and provide results. You can then use the res
 
 ## Pending Component
 
-If the document has a \`<!-- agent:pending -->\` component, EVERY response MUST include a \`<!-- patch:pending -->\` block reflecting the current task state:
-- Mark completed items with \`[x]\`
+If the document has a \`<!-- agent:pending -->\` component, EVERY response MUST include a \`<!-- patch:pending -->\` block. This is not optional.
+
+Format:
+\`\`\`
+<!-- patch:pending -->
+- [x] Completed task
+- [ ] Active task (in progress)
+- [ ] New task discovered during conversation
+<!-- /patch:pending -->
+\`\`\`
+
+Rules:
+- Mark completed items with \`[x]\`, incomplete with \`[ ]\`
 - Add new items discovered during the conversation
-- Move active items to the top
-- Remove stale items
+- Move active/priority items to the top
+- Remove stale or irrelevant items
+- Reflect the CURRENT state after your response
 
 ## Guidelines
 
