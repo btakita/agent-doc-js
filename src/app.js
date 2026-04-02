@@ -264,19 +264,19 @@ Rules:
 // --- Ragie retrieval ---
 
 async function searchRagie(ragieKey, proxyUrl, query) {
-  if (!ragieKey || !query) return null
+  if ((!ragieKey && !proxyUrl) || !query) return null
 
   const apiUrl = proxyUrl
     ? `${proxyUrl.replace(/\/$/, '')}/ragie/retrievals`
     : 'https://api.ragie.ai/retrievals'
 
+  const headers = { 'Content-Type': 'application/json' }
+  if (ragieKey) headers['Authorization'] = `Bearer ${ragieKey}`
+
   try {
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${ragieKey}`,
-      },
+      headers,
       body: JSON.stringify({ query, rerank: true }),
     })
 
@@ -348,14 +348,16 @@ async function callClaudeRaw(apiKey, model, systemPrompt, messages) {
     ? `${proxyUrl.replace(/\/$/, '')}/v1/messages`
     : 'https://api.anthropic.com/v1/messages'
 
+  const headers = {
+    'Content-Type': 'application/json',
+    'anthropic-version': '2023-06-01',
+    'anthropic-dangerous-direct-browser-access': 'true',
+  }
+  if (apiKey) headers['x-api-key'] = apiKey
+
   const response = await fetch(apiUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
+    headers,
     body: JSON.stringify(body),
   })
 
@@ -534,9 +536,9 @@ async function handleSubmit() {
   if (isProcessing) return
 
   const settings = loadSettings()
-  if (!settings.apiKey) {
+  if (!settings.apiKey && !settings.proxyUrl) {
     document.getElementById('settings-dialog').showModal()
-    setStatus('Please set your API key first')
+    setStatus('Please set your API key or proxy URL first')
     return
   }
 
@@ -788,7 +790,7 @@ function init() {
     document.getElementById('system-prompt-input').value = DEFAULT_SKILL
   })
 
-  if (!settings.apiKey) setTimeout(() => dialog.showModal(), 500)
+  if (!settings.apiKey && !settings.proxyUrl) setTimeout(() => dialog.showModal(), 500)
   setStatus('Ready — edit the document and press Ctrl+Enter to submit')
 }
 
