@@ -111,7 +111,7 @@ function computeDiff(oldText, newText) {
 function applyPatches(doc, response) {
   // If response has no patch blocks, wrap it in a default exchange patch
   if (!response.includes('<!-- patch:')) {
-    response = `<!-- patch:exchange -->\n${response}\n<!-- /patch:exchange -->`
+    response = `<!-- patch:exchange -->\n### Re:\n\n${response}\n<!-- /patch:exchange -->`
   }
 
   const patchRegex = /<!-- patch:(\w+) -->([\s\S]*?)<!-- \/patch:\1 -->/g
@@ -476,14 +476,18 @@ function init() {
   // Export button
   document.getElementById('export-btn').addEventListener('click', () => {
     const doc = editor.state.doc.toString()
-    const blob = new Blob([doc], { type: 'text/markdown' })
+    // Collect terminal output
+    const termOutput = document.getElementById('terminal-output')
+    const termLines = Array.from(termOutput?.children || []).map(el => el.textContent).join('\n')
+    const exportContent = doc + '\n\n---\n\n## Terminal Output\n\n```\n' + termLines + '\n```\n'
+    const blob = new Blob([exportContent], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = 'agent-doc-export.md'
     a.click()
     URL.revokeObjectURL(url)
-    termLog('Document exported as agent-doc-export.md', 'log-success')
+    termLog('Document exported (with terminal output)', 'log-success')
   })
 
   // Reset button
