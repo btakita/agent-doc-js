@@ -1,7 +1,7 @@
 import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { markdown } from '@codemirror/lang-markdown'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { defaultKeymap, history as cmHistory, historyKeymap } from '@codemirror/commands'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { createPatch } from 'diff'
 
@@ -147,7 +147,7 @@ function createEditor(container, initialContent) {
       doc: initialContent,
       extensions: [
         lineNumbers(),
-        history(),
+        cmHistory(),
         markdown(),
         oneDark,
         keymap.of([...defaultKeymap, ...historyKeymap]),
@@ -242,7 +242,7 @@ function applyHashParams() {
   }
   // Clear hash to avoid leaking credentials in URL
   if (applied) {
-    history.replaceState(null, '', window.location.pathname)
+    window.history.replaceState(null, '', window.location.pathname)
   }
   return applied
 }
