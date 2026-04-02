@@ -11,12 +11,13 @@ function loadSettings() {
   return {
     apiKey: localStorage.getItem('agent-doc:apiKey') || '',
     model: localStorage.getItem('agent-doc:model') || 'claude-sonnet-4-6',
+    proxyUrl: localStorage.getItem('agent-doc:proxyUrl') || '',
     systemPrompt: localStorage.getItem('agent-doc:systemPrompt') || '',
   }
 }
 
 function saveSettings(settings) {
-  for (const key of ['apiKey', 'model', 'systemPrompt']) {
+  for (const key of ['apiKey', 'model', 'proxyUrl', 'systemPrompt']) {
     if (settings[key] != null) {
       localStorage.setItem(`agent-doc:${key}`, settings[key])
     }
@@ -112,7 +113,13 @@ For template documents, respond to the user's edits naturally. Address their que
   const body = { model, max_tokens: 4096, messages }
   if (systemPrompt) body.system = systemPrompt
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  // Use proxy URL if configured, otherwise direct API
+  const proxyUrl = localStorage.getItem('agent-doc:proxyUrl')
+  const apiUrl = proxyUrl
+    ? `${proxyUrl.replace(/\/$/, '')}/v1/messages`
+    : 'https://api.anthropic.com/v1/messages'
+
+  const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -244,6 +251,7 @@ function init() {
   document.getElementById('settings-btn').addEventListener('click', () => {
     document.getElementById('api-key-input').value = settings.apiKey
     document.getElementById('model-select').value = settings.model
+    document.getElementById('proxy-url-input').value = settings.proxyUrl
     document.getElementById('system-prompt-input').value = settings.systemPrompt
     dialog.showModal()
   })
@@ -255,6 +263,7 @@ function init() {
     const newSettings = {
       apiKey: document.getElementById('api-key-input').value,
       model: document.getElementById('model-select').value,
+      proxyUrl: document.getElementById('proxy-url-input').value,
       systemPrompt: document.getElementById('system-prompt-input').value,
     }
     saveSettings(newSettings)
