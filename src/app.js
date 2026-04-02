@@ -152,6 +152,33 @@ function applyPatches(doc, response) {
   return result
 }
 
+// --- Default SKILL.md ---
+
+const DEFAULT_SKILL = `You are an agent-doc assistant. You help users edit and develop documents interactively.
+
+## Response Format
+
+Respond with patch blocks targeting the document's template components:
+\`\`\`
+<!-- patch:exchange -->
+Your response here
+<!-- /patch:exchange -->
+\`\`\`
+
+## Knowledge Base (Ragie)
+
+When you need information from the knowledge base to answer the user's question, output a search command:
+<ragie-search query="your search query"/>
+
+The system will execute the search and provide results. You can then use the results in your response.
+
+## Guidelines
+
+- Respond naturally to user edits
+- Address questions, continue conversations, provide useful content
+- When retrieved context is provided, reference it when relevant
+- Keep responses focused and concise`
+
 // --- Ragie retrieval ---
 
 async function searchRagie(ragieKey, proxyUrl, query) {
@@ -186,42 +213,7 @@ async function searchRagie(ragieKey, proxyUrl, query) {
 
 // --- Claude API ---
 
-async function callClaude(apiKey, model, systemPrompt, diff, document, ragieContext) {
-  let userContent = `You are an agent-doc assistant. The user has edited a document. Respond to their changes.
-
-<document>
-${document}
-</document>
-
-<diff>
-${diff}
-</diff>`
-
-  if (ragieContext) {
-    userContent += `
-
-<retrieved-context>
-The following documents were retrieved from the knowledge base and may be relevant:
-
-${ragieContext}
-</retrieved-context>`
-  }
-
-  userContent += `
-
-Respond with patch blocks targeting the document's components. Use this format:
-<!-- patch:exchange -->
-Your response here
-<!-- /patch:exchange -->
-
-For template documents, respond to the user's edits naturally. Address their questions, continue the conversation, and provide useful content.`
-
-  if (ragieContext) {
-    userContent += ` When relevant, reference information from the retrieved context.`
-  }
-
-  const messages = [{ role: 'user', content: userContent }]
-
+async function callClaudeRaw(apiKey, model, systemPrompt, messages) {
   const body = { model, max_tokens: 4096, messages }
   if (systemPrompt) body.system = systemPrompt
 
@@ -249,6 +241,48 @@ For template documents, respond to the user's edits naturally. Address their que
 
   const data = await response.json()
   return data.content[0].text
+}
+
+async function callClaude(apiKey, model, skillMd, diff, doc, ragieContext) {
+  const systemPrompt = skillMd || DEFAULT_SKILL
+
+  let userContent = `<document>\n${doc}\n</document>\n\n<diff>\n${diff}\n</diff>`
+
+  if (ragieContext) {
+    userContent += `\n\n<retrieved-context>\n${ragieContext}\n</retrieved-context>`
+  }
+
+  const messages = [{ role: 'user', content: userContent }]
+
+  // First call
+  let response = await callClaudeRaw(apiKey, model, systemPrompt, messages)
+
+  // Check for <ragie-search> commands (max 3 iterations)
+  const settings = loadSettings()
+  for (let i = 0; i < 3; i++) {
+    const searchMatch = response.match(/<ragie-search\s+query="([^"]+)"\s*\/>/)
+    if (!searchMatch || !settings.ragieKey) break
+
+    const query = searchMatch[1]
+    termLog(`Claude requested search: "${query}"`, 'log-context')
+
+    const results = await searchRagie(settings.ragieKey, settings.proxyUrl, query)
+    if (!results) {
+      termLog('No results from knowledge base', 'log-info')
+      break
+    }
+
+    const chunkCount = (results.match(/---/g) || []).length + 1
+    termLog(`Retrieved ${chunkCount} chunks for "${query}"`, 'log-context')
+
+    // Send results back to Claude
+    messages.push({ role: 'assistant', content: response })
+    messages.push({ role: 'user', content: `<search-results query="${query}">\n${results}\n</search-results>\n\nNow provide your response using these search results.` })
+
+    response = await callClaudeRaw(apiKey, model, systemPrompt, messages)
+  }
+
+  return response
 }
 
 // --- Editor ---
@@ -350,31 +384,13 @@ async function handleSubmit() {
 
   termLog(`Submitting (model: ${settings.model})`)
   termLog(`Diff: ${diff.split('\n').length} lines changed`)
-
-  // Search Ragie for relevant context (if configured)
-  let ragieContext = null
-  if (settings.ragieKey) {
-    setStatus('Searching knowledge base...')
-    termLog('Searching Ragie knowledge base...')
-    const addedLines = diff.split('\n').filter(l => l.startsWith('+')).map(l => l.slice(1)).join(' ').slice(0, 500)
-    ragieContext = await searchRagie(settings.ragieKey, settings.proxyUrl, addedLines)
-    if (ragieContext) {
-      const chunkCount = (ragieContext.match(/---/g) || []).length + 1
-      termLog(`Retrieved ${chunkCount} chunks from knowledge base`, 'log-context')
-      setStatus('Context retrieved. Calling Claude...')
-    } else {
-      termLog('No relevant context found in knowledge base')
-      setStatus('Calling Claude...')
-    }
-  } else {
-    setStatus('Calling Claude...')
-  }
+  setStatus('Calling Claude...')
 
   termLog('Calling Claude API...')
 
   try {
     const response = await callClaude(
-      settings.apiKey, settings.model, settings.systemPrompt, diff, currentDoc, ragieContext,
+      settings.apiKey, settings.model, settings.systemPrompt, diff, currentDoc, null,
     )
     termLog(`Response: ${response.length} chars`, 'log-success')
     const updatedDoc = applyPatches(currentDoc, response)
@@ -511,7 +527,7 @@ function init() {
     document.getElementById('model-select').value = settings.model
     document.getElementById('proxy-url-input').value = settings.proxyUrl
     document.getElementById('ragie-key-input').value = settings.ragieKey
-    document.getElementById('system-prompt-input').value = settings.systemPrompt
+    document.getElementById('system-prompt-input').value = settings.systemPrompt || DEFAULT_SKILL
     dialog.showModal()
   })
 
