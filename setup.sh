@@ -30,11 +30,8 @@ fi
 # Encode as URL hash params
 MODEL="${AGENT_DOC_MODEL:-claude-haiku-4-5-20251001}"
 
-# Optional: Ragie API key from pass or env
+# Optional: Ragie API key (only from env var, never auto-read from pass)
 RAGIE_KEY="${RAGIE_API_KEY:-}"
-if [ -z "$RAGIE_KEY" ]; then
-  RAGIE_KEY=$(pass btak/RAGIE_API_KEY 2>/dev/null || true)
-fi
 
 HASH="apiKey=${TOKEN}&proxyUrl=${PROXY_URL}&model=${MODEL}"
 if [ -n "$RAGIE_KEY" ]; then
