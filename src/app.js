@@ -455,6 +455,18 @@ function init() {
 
   document.getElementById('submit-btn').addEventListener('click', handleSubmit)
 
+  // Reset button
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    if (!confirm('Reset document to default? This clears all content and snapshot.')) return
+    editor.dispatch({
+      changes: { from: 0, to: editor.state.doc.length, insert: DEFAULT_DOC },
+    })
+    setSnapshot(DEFAULT_DOC)
+    localStorage.setItem('agent-doc:document', DEFAULT_DOC)
+    termLog('Document reset to default', 'log-info')
+    setStatus('Document reset')
+  })
+
   // Terminal toggle/clear
   document.getElementById('terminal-toggle').addEventListener('click', (e) => {
     e.stopPropagation()
