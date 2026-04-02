@@ -21,11 +21,21 @@
         <button id="import-btn" title="Import .md file">Import</button>
         <input type="file" id="import-file" accept=".md,.txt,.markdown" style="display:none">
         <button id="reset-btn" title="Reset document to default">Reset</button>
+        <button id="sources-btn" title="Toggle source documents panel">Sources</button>
         <button id="settings-btn" title="Settings">Settings</button>
       </div>
     </header>
     <main id="editor-container">
       <div id="editor"></div>
+      <div id="sources-panel" class="collapsed">
+        <div id="sources-header">
+          <span>Source Documents</span>
+          <button id="sources-close" title="Close sources panel">x</button>
+        </div>
+        <div id="sources-content">
+          <p class="sources-empty">No retrieved documents yet</p>
+        </div>
+      </div>
     </main>
     <div id="terminal-container">
       <div id="terminal-header">

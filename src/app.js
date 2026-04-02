@@ -257,13 +257,56 @@ async function searchRagie(ragieKey, proxyUrl, query) {
 
     const data = await response.json()
     const chunks = data.scored_chunks || []
-    // Return top 5 chunks formatted as context
-    return chunks.slice(0, 5).map(c =>
-      `[${c.document_name}] (score: ${c.score?.toFixed(2)})\n${c.text}`
-    ).join('\n\n---\n\n')
+    const topChunks = chunks.slice(0, 5)
+
+    // Return both raw chunks and formatted text
+    return {
+      chunks: topChunks,
+      formatted: topChunks.map(c =>
+        `[${c.document_name}] (score: ${c.score?.toFixed(2)})\n${c.text}`
+      ).join('\n\n---\n\n'),
+    }
   } catch {
     return null
   }
+}
+
+// --- Sources panel ---
+
+let allSourceChunks = []
+
+function renderSources(chunks) {
+  const content = document.getElementById('sources-content')
+  if (!chunks || chunks.length === 0) {
+    content.innerHTML = '<p class="sources-empty">No retrieved documents yet</p>'
+    return
+  }
+
+  content.innerHTML = chunks.map(c => `
+    <div class="source-chunk">
+      <div class="source-chunk-header">
+        <span class="source-chunk-name" title="${(c.document_name || 'Unknown').replace(/"/g, '&quot;')}">${c.document_name || 'Unknown'}</span>
+        <span class="source-chunk-score">${c.score != null ? c.score.toFixed(2) : '—'}</span>
+      </div>
+      <div class="source-chunk-text">${escapeHtml(c.text || '')}</div>
+    </div>
+  `).join('')
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function showSourcesPanel() {
+  document.getElementById('sources-panel').classList.remove('collapsed')
+}
+
+function hideSourcesPanel() {
+  document.getElementById('sources-panel').classList.add('collapsed')
+}
+
+function toggleSourcesPanel() {
+  document.getElementById('sources-panel').classList.toggle('collapsed')
 }
 
 // --- Claude API ---
@@ -309,6 +352,9 @@ async function callClaude(apiKey, model, skillMd, diff, doc, ragieContext) {
 
   const messages = [{ role: 'user', content: userContent }]
 
+  // Reset sources for this submit
+  allSourceChunks = []
+
   // First call
   let response = await callClaudeRaw(apiKey, model, systemPrompt, messages)
 
@@ -321,20 +367,30 @@ async function callClaude(apiKey, model, skillMd, diff, doc, ragieContext) {
     const query = searchMatch[1]
     termLog(`Claude requested search: "${query}"`, 'log-context')
 
-    const results = await searchRagie(settings.ragieKey, settings.proxyUrl, query)
-    if (!results) {
+    const result = await searchRagie(settings.ragieKey, settings.proxyUrl, query)
+    if (!result) {
       termLog('No results from knowledge base', 'log-info')
       break
     }
 
-    const chunkCount = (results.match(/---/g) || []).length + 1
-    termLog(`Retrieved ${chunkCount} chunks for "${query}"`, 'log-context')
+    // Collect chunks for the sources panel
+    allSourceChunks.push(...result.chunks)
+    renderSources(allSourceChunks)
+    showSourcesPanel()
+
+    termLog(`Retrieved ${result.chunks.length} chunks for "${query}"`, 'log-context')
 
     // Send results back to Claude
     messages.push({ role: 'assistant', content: response })
-    messages.push({ role: 'user', content: `<search-results query="${query}">\n${results}\n</search-results>\n\nNow provide your response using these search results.` })
+    messages.push({ role: 'user', content: `<search-results query="${query}">\n${result.formatted}\n</search-results>\n\nNow provide your response using these search results.` })
 
     response = await callClaudeRaw(apiKey, model, systemPrompt, messages)
+  }
+
+  // Update sources panel with final state
+  if (allSourceChunks.length > 0) {
+    renderSources(allSourceChunks)
+    showSourcesPanel()
   }
 
   // Strip any remaining <ragie-search> tags from the final response
@@ -651,6 +707,10 @@ function init() {
       termLog(`Error: ${err.message}`, 'log-error')
     }
   })
+
+  // Sources panel toggle
+  document.getElementById('sources-btn').addEventListener('click', toggleSourcesPanel)
+  document.getElementById('sources-close').addEventListener('click', hideSourcesPanel)
 
   termLog('agent-doc-js initialized', 'log-success')
 
