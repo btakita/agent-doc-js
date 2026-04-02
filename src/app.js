@@ -269,9 +269,18 @@ function init() {
 
   document.getElementById('submit-btn').addEventListener('click', handleSubmit)
 
+  // Toolbar model dropdown — auto-saves on change
+  const modelToolbar = document.getElementById('model-toolbar')
+  const settings = loadSettings()
+  modelToolbar.value = settings.model
+  modelToolbar.addEventListener('change', () => {
+    settings.model = modelToolbar.value
+    localStorage.setItem('agent-doc:model', modelToolbar.value)
+    setStatus(`Model: ${modelToolbar.options[modelToolbar.selectedIndex].text}`)
+  })
+
   // Settings dialog
   const dialog = document.getElementById('settings-dialog')
-  const settings = loadSettings()
 
   document.getElementById('settings-btn').addEventListener('click', () => {
     document.getElementById('api-key-input').value = settings.apiKey
@@ -291,6 +300,7 @@ function init() {
     }
     saveSettings(newSettings)
     Object.assign(settings, newSettings)
+    modelToolbar.value = newSettings.model
     setStatus('Settings saved')
     dialog.close()
   })
