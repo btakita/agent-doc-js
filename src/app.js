@@ -1,9 +1,75 @@
-import { EditorView, keymap, lineNumbers } from '@codemirror/view'
-import { EditorState } from '@codemirror/state'
+import { EditorView, keymap, lineNumbers, gutter, GutterMarker } from '@codemirror/view'
+import { EditorState, StateField, StateEffect, RangeSet } from '@codemirror/state'
 import { markdown } from '@codemirror/lang-markdown'
 import { defaultKeymap, history as cmHistory, historyKeymap } from '@codemirror/commands'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { createPatch } from 'diff'
+import { createPatch, diffLines } from 'diff'
+
+// --- Diff gutter ---
+
+const setDiffMarkers = StateEffect.define()
+
+class DiffMarker extends GutterMarker {
+  constructor(type) {
+    super()
+    this.type = type // 'added' | 'modified'
+  }
+  toDOM() {
+    const el = document.createElement('div')
+    el.className = `diff-marker diff-${this.type}`
+    return el
+  }
+}
+
+const addedMarker = new DiffMarker('added')
+const modifiedMarker = new DiffMarker('modified')
+
+const diffMarkerField = StateField.define({
+  create: () => RangeSet.empty,
+  update(set, tr) {
+    for (const e of tr.effects) {
+      if (e.is(setDiffMarkers)) return e.value
+    }
+    return set
+  },
+})
+
+const diffGutter = gutter({
+  class: 'cm-diff-gutter',
+  markers: (view) => view.state.field(diffMarkerField),
+})
+
+function computeDiffMarkers(state, snapshotText) {
+  const currentLines = state.doc.toString().split('\n')
+  const snapshotLines = snapshotText.split('\n')
+  const markers = []
+
+  const changes = diffLines(snapshotText, state.doc.toString())
+  let currentLine = 0
+
+  for (const part of changes) {
+    const lines = part.value.split('\n')
+    // diffLines includes trailing empty string from split
+    const lineCount = part.value.endsWith('\n') ? lines.length - 1 : lines.length
+
+    if (part.added) {
+      for (let i = 0; i < lineCount; i++) {
+        const lineNum = currentLine + i
+        if (lineNum < state.doc.lines) {
+          const pos = state.doc.line(lineNum + 1).from
+          markers.push(addedMarker.range(pos))
+        }
+      }
+      currentLine += lineCount
+    } else if (part.removed) {
+      // Removed lines don't exist in current doc, skip
+    } else {
+      currentLine += lineCount
+    }
+  }
+
+  return RangeSet.of(markers, true)
+}
 
 // --- Settings ---
 
@@ -198,6 +264,8 @@ function createEditor(container, initialContent) {
           mac: 'Cmd-Enter',
           run: () => { handleSubmit(); return true },
         }]),
+        diffMarkerField,
+        diffGutter,
         lineNumbers(),
         cmHistory(),
         markdown(),
@@ -207,6 +275,12 @@ function createEditor(container, initialContent) {
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             localStorage.setItem('agent-doc:document', update.state.doc.toString())
+            // Update diff gutter
+            const snapshot = getSnapshot()
+            if (snapshot) {
+              const markers = computeDiffMarkers(update.state, snapshot)
+              update.view.dispatch({ effects: setDiffMarkers.of(markers) })
+            }
           }
         }),
       ],

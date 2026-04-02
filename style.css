@@ -94,6 +94,7 @@ body {
 #editor-container {
   flex: 1;
   overflow: hidden;
+  min-height: 200px;
 }
 
 #editor {
@@ -102,6 +103,29 @@ body {
 
 #editor .cm-editor {
   height: 100%;
+}
+
+/* Diff gutter */
+.cm-diff-gutter {
+  width: 4px !important;
+  min-width: 4px !important;
+}
+
+.cm-diff-gutter .cm-gutterElement {
+  padding: 0 !important;
+}
+
+.diff-marker {
+  width: 4px;
+  height: 100%;
+}
+
+.diff-added {
+  background: var(--green);
+}
+
+.diff-modified {
+  background: var(--accent);
 }
 
 #editor .cm-scroller {
@@ -114,8 +138,8 @@ body {
 #terminal-container {
   display: flex;
   flex-direction: column;
-  height: calc(10 * 1.5em + 40px); /* 10 lines + header + input */
-  min-height: 0;
+  flex-shrink: 0;
+  height: 220px;
   border-top: 1px solid var(--border);
 }
 
