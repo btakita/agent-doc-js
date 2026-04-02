@@ -213,7 +213,10 @@ async function handleSubmit() {
   }
 
   isProcessing = true
-  document.getElementById('submit-btn').disabled = true
+  const submitBtn = document.getElementById('submit-btn')
+  submitBtn.disabled = true
+  submitBtn.textContent = 'Submitting...'
+  document.getElementById('status-bar').classList.add('loading')
   setStatus('Calling Claude...')
 
   try {
@@ -231,7 +234,9 @@ async function handleSubmit() {
     console.error(err)
   } finally {
     isProcessing = false
-    document.getElementById('submit-btn').disabled = false
+    submitBtn.disabled = false
+    submitBtn.textContent = 'Submit'
+    document.getElementById('status-bar').classList.remove('loading')
   }
 }
 
