@@ -536,10 +536,7 @@ function init() {
   document.getElementById('export-btn').addEventListener('click', () => {
     const doc = editor.state.doc.toString()
     // Collect terminal output
-    const termOutput = document.getElementById('terminal-output')
-    const termLines = Array.from(termOutput?.children || []).map(el => el.textContent).join('\n')
-    const exportContent = doc + '\n\n---\n\n## Terminal Output\n\n```\n' + termLines + '\n```\n'
-    const blob = new Blob([exportContent], { type: 'text/markdown' })
+    const blob = new Blob([doc], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
