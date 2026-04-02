@@ -203,6 +203,8 @@ When you need information from the knowledge base to answer the user's question,
 
 The system will execute the search and provide results. You can then use the results in your response.
 
+When referencing retrieved content, cite the source document name in brackets, e.g. [2026-03-12-dogfooding-agent-doc-part1-blog.md]. This helps users trace information back to the original source.
+
 ## Pending Component
 
 If the document has a \`<!-- agent:pending -->\` component, EVERY response MUST include a \`<!-- patch:pending -->\` block. This is not optional.
