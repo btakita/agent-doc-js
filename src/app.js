@@ -229,7 +229,28 @@ async function handleSubmit() {
   }
 }
 
+function applyHashParams() {
+  const hash = window.location.hash.slice(1)
+  if (!hash) return false
+  const params = new URLSearchParams(hash)
+  let applied = false
+  for (const [key, value] of params) {
+    if (value && ['apiKey', 'model', 'proxyUrl', 'systemPrompt'].includes(key)) {
+      localStorage.setItem(`agent-doc:${key}`, value)
+      applied = true
+    }
+  }
+  // Clear hash to avoid leaking credentials in URL
+  if (applied) {
+    history.replaceState(null, '', window.location.pathname)
+  }
+  return applied
+}
+
 function init() {
+  // Auto-populate from URL hash params (from setup.sh)
+  applyHashParams()
+
   const savedDoc = localStorage.getItem('agent-doc:document') || DEFAULT_DOC
   editor = createEditor(document.getElementById('editor'), savedDoc)
 
