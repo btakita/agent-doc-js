@@ -3,3 +3,4 @@ bun.lock
 CLAUDE.md
 README.md
 tsconfig.json
+.tsift/
